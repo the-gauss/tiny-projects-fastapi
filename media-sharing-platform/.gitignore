@@ -1,0 +1,44 @@
+# Python bytecode and cache
+__pycache__/
+*.pyc
+
+# Virtual environments
+.venv/
+
+# Environment files and secrets
+.env
+.env.*
+
+# macOS
+.DS_Store
+
+# Test and tool caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.tox/
+.cache/
+
+# Coverage
+.coverage
+coverage.xml
+
+# Editors/IDEs
+.idea/
+.vscode/
+
+# Notebooks
+.ipynb_checkpoints/
+
+# Packaging/build artifacts
+dist/
+build/
+*.egg-info/
+
+# Frontend (if present later)
+node_modules/
+
+# Note: keep these tracked
+# pyproject.toml
+# uv.lock
+# .python-version
