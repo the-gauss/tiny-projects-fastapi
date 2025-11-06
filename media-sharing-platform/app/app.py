@@ -1,5 +1,5 @@
-from fastapi import FastAPI, HTTPException
-
+from fastapi import FastAPI, HTTPException # pyright: ignore[reportMissingImports]
+from app.schemas import CreatePost, PostResponse
 
 app = FastAPI()
 
@@ -18,14 +18,23 @@ text_posts = {
 }
 
 @app.get('/posts')      # a get request for /posts endpoint
-def get_all_posts(limit: int) -> dict:    # this function is triggered when the endpoint is accessed
+def get_all_posts(limit: int = 10):    # this function is triggered when the endpoint is accessed
     if limit:
         return list(text_posts.values())[:limit]
     return text_posts   # Return either a Pydantic Object or a Dictionary
 
 @app.get('/posts/{id}')    # a request with a path parameter - path params (/) go in decorator args, query params (?) go in function args
-def get_post(id: int) -> dict:
+def get_post(id: int):
     if id not in text_posts:
         raise HTTPException(status_code=404, detail="Post not found!")  # raise the HTTPException, we can't use try-except here cuz we need to RAISE this error, not catch any.
     else:
         return text_posts.get(id)
+    
+@app.post("/posts")
+def create_post(post: CreatePost) -> PostResponse:  # post takes a Pydantic schema that it'll follow
+    new_post = {'title': post.title, 'content': post.content}
+    text_posts[max(text_posts.keys())+1] = new_post
+    return new_post
+
+# Solve first - new_post isn't a CreatePost type
+

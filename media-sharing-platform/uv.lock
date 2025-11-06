@@ -776,6 +776,7 @@ dependencies = [
     { name = "fastapi-users", version = "14.0.2", source = { registry = "https://pypi.org/simple" }, extra = ["sqlalchemy"], marker = "python_full_version < '3.10'" },
     { name = "fastapi-users", version = "15.0.1", source = { registry = "https://pypi.org/simple" }, extra = ["sqlalchemy"], marker = "python_full_version >= '3.10'" },
     { name = "imagekitio" },
+    { name = "pydantic" },
     { name = "python-dotenv" },
     { name = "uvicorn", extra = ["standard"] },
 ]
@@ -786,6 +787,7 @@ requires-dist = [
     { name = "fastapi", specifier = ">=0.121.0" },
     { name = "fastapi-users", extras = ["sqlalchemy"], specifier = ">=14.0.2" },
     { name = "imagekitio", specifier = ">=4.2.0" },
+    { name = "pydantic", specifier = ">=2.12.4" },
     { name = "python-dotenv", specifier = ">=1.2.1" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.38.0" },
 ]
