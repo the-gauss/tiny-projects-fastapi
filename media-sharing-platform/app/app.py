@@ -39,9 +39,9 @@ app = FastAPI(lifespan=lifespan)
 
 @app.post('/upload')
 async def upload_file(
-    file: UploadFile = File(...),
-    caption: str = Form(''),
-    session: AsyncSession = Depends(get_async_session)
+    file: UploadFile = File(...),   # File() tells FastAPI to expect a file upload
+    caption: str = Form(''),    # Form tells it to extract non-file form fields like text inputs etc.
+    session: AsyncSession = Depends(get_async_session)  # Depends is used to inject dependencies like databases etc. A dependency is an external function/class that the route depends on like DB sesssions, authentication, settings.
 ):  # arguments of a post function form the request body; arguments of a get function form the query parameters
     post = Post(
         caption = caption,
