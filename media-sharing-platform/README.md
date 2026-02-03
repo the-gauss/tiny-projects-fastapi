@@ -1,20 +1,20 @@
 # Media Sharing Platform
 
-A FastAPI-based media sharing platform with ImageKit integration for image hosting.
+A FastAPI-based media sharing platform backed by Postgres.
 
 ## 🚀 Features
 
 - Upload and share images with captions
 - Feed view with chronologically ordered posts
-- ImageKit integration for image storage
-- Async SQLite database
+- Media stored in Postgres (BYTEA) for local/dev testing
+- Async SQLAlchemy + Postgres
 - FastAPI backend with Pydantic validation
 
 ## 📋 Prerequisites
 
 - Python 3.9+
 - [uv](https://github.com/astral-sh/uv) package manager
-- ImageKit account (for image hosting)
+- Local Postgres running
 
 ## 🛠️ Setup
 
@@ -27,10 +27,19 @@ uv sync
 ### 2. Configure Environment Variables
 
 The `.env` file should already be configured with:
-- `DATABASE_URL`: SQLite database path
-- `IMAGEKIT_PRIVATE_KEY`: Your ImageKit private key
-- `IMAGEKIT_PUBLIC_KEY`: Your ImageKit public key
-- `IMAGEKIT_URL`: Your ImageKit URL endpoint
+- `DATABASE_URL`: Postgres async SQLAlchemy URL (example below)
+
+Example:
+
+```bash
+DATABASE_URL=postgresql+asyncpg://thory:0301sonaL@localhost:5432/media_sharing_platform
+```
+
+If your local Postgres is configured for peer auth (common for Homebrew installs), a socket URL can be simpler:
+
+```bash
+DATABASE_URL=postgresql+asyncpg:///media_sharing_platform
+```
 
 ### 3. Initialize Database
 
@@ -79,6 +88,13 @@ GET /feed
 Returns a list of all posts ordered by creation date (newest first)
 ```
 
+### Get Media
+```
+GET /media/{post_id}
+
+Returns the raw bytes for media uploaded via `/upload`.
+```
+
 ## 🗂️ Project Structure
 
 ```
@@ -100,13 +116,11 @@ media-sharing-platform/
 The application uses:
 - **FastAPI** for the web framework
 - **SQLAlchemy** with async support for database ORM
-- **aiosqlite** for async SQLite operations
-- **ImageKit** for image hosting and management
+- **asyncpg** for async Postgres connectivity
 - **Pydantic** for data validation
 
 ## 📝 Notes
 
-- The database file `test.db` will be created automatically
 - Sample posts use Unsplash URLs for demonstration
 - The application uses async/await for all database operations
-- ImageKit credentials must be valid for actual image uploads to work
+- Uploaded media is stored in Postgres for local/dev testing

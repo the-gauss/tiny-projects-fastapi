@@ -1,15 +1,24 @@
-from fastapi import FastAPI, HTTPException, File, UploadFile, Form, Depends # pyright: ignore[reportMissingImports]
-from app.schemas import CreatePost, PostResponse
-from app.db import Post, create_db_and_tables, get_async_session
-from sqlalchemy.ext.asyncio import AsyncSession
+from __future__ import annotations
+
+"""
+FastAPI application.
+
+This app supports:
+- `POST /upload`: upload a file + caption, stored in Postgres (BYTEA) for local testing.
+- `GET /feed`: list posts newest-first.
+- `GET /media/{post_id}`: serve stored bytes for posts uploaded via `/upload`.
+"""
+
 from contextlib import asynccontextmanager
-from sqlalchemy import select
-from app.images import imagekit
-from imagekitio.models.UploadFileRequestOptions import UploadFileRequestOptions
-import shutil
-import os
 import uuid
-import tempfile
+
+from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile  # pyright: ignore[reportMissingImports]
+from fastapi.responses import Response
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.db import Post, create_db_and_tables, get_async_session
+from app.schemas import FeedResponse, PostResponse
 
 @asynccontextmanager    # Converts the function into a context manager
 async def lifespan(app: FastAPI):
@@ -39,58 +48,75 @@ app = FastAPI(lifespan=lifespan)
 #     text_posts[max(text_posts.keys())+1] = new_post
 #     return new_post
 
-@app.post('/upload')
+@app.post("/upload", response_model=PostResponse)
 async def upload_file(
     file: UploadFile = File(...),   # File() tells FastAPI to expect a file upload
     caption: str = Form(''),    # Form tells it to extract non-file form fields like text inputs etc.
     session: AsyncSession = Depends(get_async_session)  # Depends is used to inject dependencies like databases etc. A dependency is an external function/class that the route depends on like DB sesssions, authentication, settings.
 ):  # arguments of a post function form the request body; arguments of a get function form the query parameters
-    post = Post(
-        caption = caption,
-        url = 'dummy url',
-        file_type = 'photo',
-        file_name = 'dummy name'
-    )
-
-    temp_file_path = None
+    # NOTE: `UploadFile` streams uploads efficiently. We still read into memory here
+    # because we're persisting into Postgres BYTEA for local/dev testing.
+    # For large uploads in production, stream to object storage instead.
+    post_id = uuid.uuid4()
+    media_url = f"/media/{post_id}"
 
     try:
-        with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(file.filename)[1]) as temp_file:
-            temp_file_path = temp_file.name
-            shutil.copyfileobj(file.file, temp_file) # copy the incoming file into the temporary file object we created
+        media_bytes = await file.read()
+        if not media_bytes:
+            raise HTTPException(status_code=400, detail="Empty upload.")
 
-        #TODO:
-        # 1. Add the uploaded image to the database
-        # 2. Remove all references to imagekit
+        post = Post(
+            id=post_id,
+            caption=caption,
+            url=media_url,
+            file_type=file.content_type or "application/octet-stream",
+            file_name=file.filename or f"{post_id}",
+            media_bytes=media_bytes,
+        )
+
+        session.add(post)  # Stage changes
+        await session.commit()
+        await session.refresh(post)  # Hydrate server-side defaults (e.g. created_at)
+        return PostResponse.model_validate(post)
+    except HTTPException:
+        # Preserve intentionally raised HTTP errors (e.g. validation failures).
+        await session.rollback()
+        raise
+    except Exception:
+        # Ensure we don't leak a failed transaction to later requests.
+        await session.rollback()
+        raise HTTPException(status_code=500, detail="Upload failed.")
+    finally:
+        # FastAPI will close the underlying file after the request, but closing early
+        # is safe and avoids holding file handles longer than necessary.
+        await file.close()
 
 
-    except Exception as e:
-        pass
+@app.get("/media/{post_id}")
+async def get_media(
+    post_id: uuid.UUID,
+    session: AsyncSession = Depends(get_async_session),
+):
+    """
+    Serve stored media bytes for an uploaded post.
 
-    session.add(post)       # like staging to add 
-    await session.commit()  # actually add to the database
-    await session.refresh(post) #hydrates the other auto fields (like id etc) we didn't provide
-    return post     # return the post object (may be so that it can be used at the front)
+    We return a raw `Response` so clients can render the media directly.
+    """
+    result = await session.execute(select(Post).where(Post.id == post_id))
+    post = result.scalar_one_or_none()
+    if not post or not post.media_bytes:
+        raise HTTPException(status_code=404, detail="Media not found.")
 
-@app.get('/feed')
+    return Response(
+        content=post.media_bytes,
+        media_type=post.file_type,
+        headers={"Content-Disposition": f'inline; filename="{post.file_name}"'},
+    )
+
+@app.get("/feed", response_model=FeedResponse)
 async def get_feed(
     session: AsyncSession = Depends(get_async_session)
 ):
     result = await session.execute(select(Post).order_by(Post.created_at.desc()))
-    posts = [row[0] for row in result.all()]
-
-    posts_data = []
-    for post in posts:
-        posts_data.append(
-            {
-                'id': str(post.id),
-                'caption': post.caption,
-                'url': post.url,
-                'file_type': post.file_type,
-                'file_name': post.file_name,
-                'created_at': post.created_at.isoformat()
-            }
-        )
-
-    return {'posts': posts_data}
-
+    posts = result.scalars().all()
+    return FeedResponse(posts=[PostResponse.model_validate(p) for p in posts])
