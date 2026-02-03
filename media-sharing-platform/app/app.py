@@ -11,10 +11,12 @@ import os
 import uuid
 import tempfile
 
-@asynccontextmanager
+@asynccontextmanager    # Converts the function into a context manager
 async def lifespan(app: FastAPI):
     await create_db_and_tables()
-    yield
+    # Everything before yield runs exactly once, right when the server starts up, but before it begins listening for HTTP requests.
+    yield   # This is the moment where the application lives
+    # Everything after yield runs exactly once, right when the server is shutting down.
 
 app = FastAPI(lifespan=lifespan)
 
@@ -49,6 +51,22 @@ async def upload_file(
         file_type = 'photo',
         file_name = 'dummy name'
     )
+
+    temp_file_path = None
+
+    try:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(file.filename)[1]) as temp_file:
+            temp_file_path = temp_file.name
+            shutil.copyfileobj(file.file, temp_file) # copy the incoming file into the temporary file object we created
+
+        #TODO:
+        # 1. Add the uploaded image to the database
+        # 2. Remove all references to imagekit
+
+
+    except Exception as e:
+        pass
+
     session.add(post)       # like staging to add 
     await session.commit()  # actually add to the database
     await session.refresh(post) #hydrates the other auto fields (like id etc) we didn't provide

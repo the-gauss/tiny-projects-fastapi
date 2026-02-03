@@ -27,6 +27,7 @@ class Post(Base):
     file_type = Column(String, nullable=False)
     file_name = Column(String, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
+    # TODO: image binary column to be added
 
 
 engine = create_async_engine(DATABASE_URL)
